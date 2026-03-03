@@ -49,8 +49,10 @@ export default function Recommendations() {
 
   const [data, setData]             = useState(null)  // { recommendations, interests, ... }
   const [budgetStats, setBudgetStats] = useState(_initStats) // { budget_amount, total_spent, remaining_budget }
-  const [loading, setLoading]       = useState(true)   // true only on the very first load
-  const [refreshing, setRefreshing] = useState(false)  // true only when re-fetching after first load
+  // LEARNING — single loading state for the recs section only.
+  //   The page structure (budget cards, interests) renders immediately.
+  //   `refreshing` is true whenever an AI fetch is in flight — initial or subsequent.
+  const [refreshing, setRefreshing] = useState(false)
   const [saving, setSaving]         = useState(false)
   const [error, setError]           = useState('')
   const [successMsg, setSuccessMsg] = useState('')
@@ -72,9 +74,8 @@ export default function Recommendations() {
       const parsed = JSON.parse(cached)
       setData(parsed)
       setPendingInterests(parsed.interests || [])
-      setLoading(false)
     } else {
-      fetchRecommendations(true)
+      fetchRecommendations()
     }
   }, [])
 
@@ -99,13 +100,8 @@ export default function Recommendations() {
     }
   }
 
-  const fetchRecommendations = async (isInitial = false) => {
-    // LEARNING — Two loading states:
-    //   isInitial=true  → blank the whole page (first visit, nothing to show yet)
-    //   isInitial=false → only the cards grid shows a spinner; the rest stays visible
-    if (isInitial) setLoading(true)
-    else setRefreshing(true)
-
+  const fetchRecommendations = async () => {
+    setRefreshing(true)
     try {
       const { data: res } = await api.get('/recommendations/')
       sessionStorage.setItem('recommendations_cache', JSON.stringify(res))
@@ -114,7 +110,6 @@ export default function Recommendations() {
     } catch (err) {
       setError('Failed to load recommendations.')
     } finally {
-      setLoading(false)
       setRefreshing(false)
     }
   }
@@ -150,8 +145,6 @@ export default function Recommendations() {
       setSaving(false)
     }
   }
-
-  if (loading) return <div className="loading">Loading recommendations...</div>
 
   const hasInterestChanges =
     JSON.stringify([...pendingInterests].sort()) !==
@@ -232,12 +225,12 @@ export default function Recommendations() {
           : 'No recommendations yet'}
       </div>
 
-      {refreshing ? (
+      {refreshing || !data ? (
         <div className="spinner-wrap">
           <div className="spinner" />
           Generating recommendations...
         </div>
-      ) : data?.recommendations?.length === 0 ? (
+      ) : data.recommendations?.length === 0 ? (
         <div className="empty-state">
           <h3>Select your interests above</h3>
           <p>Choose what you enjoy and we'll find things that fit your budget.</p>
