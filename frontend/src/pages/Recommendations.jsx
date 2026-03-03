@@ -43,7 +43,8 @@ const fmt = (n) => `$${Number(n).toLocaleString('en-US', { minimumFractionDigits
 export default function Recommendations() {
   const { user, updateUser } = useAuth()
 
-  const [data, setData]             = useState(null)  // { recommendations, remaining_budget, ... }
+  const [data, setData]             = useState(null)  // { recommendations, interests, ... }
+  const [budgetStats, setBudgetStats] = useState(null) // { budget_amount, total_spent, remaining_budget }
   const [loading, setLoading]       = useState(true)   // true only on the very first load
   const [refreshing, setRefreshing] = useState(false)  // true only when re-fetching after first load
   const [saving, setSaving]         = useState(false)
@@ -54,6 +55,9 @@ export default function Recommendations() {
   const [pendingInterests, setPendingInterests] = useState(user?.interests || [])
 
   useEffect(() => {
+    // Always fetch live budget stats so the numbers reflect latest transactions
+    fetchBudgetStats()
+
     // LEARNING — sessionStorage caching:
     //   sessionStorage persists data for the lifetime of the browser tab.
     //   On the first visit we fetch from the API and save the result.
@@ -69,6 +73,25 @@ export default function Recommendations() {
       fetchRecommendations(true)
     }
   }, [])
+
+  const fetchBudgetStats = async () => {
+    try {
+      const now = new Date()
+      const [budgetRes, statsRes] = await Promise.all([
+        api.get('/budgets/current/'),
+        api.get(`/transactions/stats/?month=${now.getMonth() + 1}&year=${now.getFullYear()}`),
+      ])
+      const budgetAmount = parseFloat(budgetRes.data.amount || 0)
+      const totalSpent   = parseFloat(statsRes.data.total_spent || 0)
+      setBudgetStats({
+        budget_amount:    budgetAmount,
+        total_spent:      totalSpent,
+        remaining_budget: budgetAmount - totalSpent,
+      })
+    } catch {
+      // Non-critical — fall back to cached data if available
+    }
+  }
 
   const fetchRecommendations = async (isInitial = false) => {
     // LEARNING — Two loading states:
@@ -135,27 +158,27 @@ export default function Recommendations() {
       {error   && <div className="alert alert-error">{error}</div>}
       {successMsg && <div className="alert alert-success">{successMsg}</div>}
 
-      {/* Budget Context */}
-      {data && (
+      {/* Budget Context — always live, fetched independently from recommendations cache */}
+      {budgetStats && (
         <div className="grid-3" style={{ marginBottom: '1.25rem' }}>
           <div className="card">
             <div className="card-title">Monthly Budget</div>
             <div className="stat-number" style={{ color: 'var(--primary)' }}>
-              {fmt(data.budget_amount)}
+              {fmt(budgetStats.budget_amount)}
             </div>
           </div>
           <div className="card">
             <div className="card-title">Spent So Far</div>
             <div className="stat-number" style={{ color: 'var(--danger)' }}>
-              {fmt(data.total_spent)}
+              {fmt(budgetStats.total_spent)}
             </div>
           </div>
           <div className="card">
             <div className="card-title">Still Available</div>
             <div className="stat-number" style={{
-              color: data.remaining_budget >= 0 ? 'var(--success)' : 'var(--danger)'
+              color: budgetStats.remaining_budget >= 0 ? 'var(--success)' : 'var(--danger)'
             }}>
-              {fmt(data.remaining_budget)}
+              {fmt(budgetStats.remaining_budget)}
             </div>
             <div className="stat-label">
               Recommendations based on this amount
