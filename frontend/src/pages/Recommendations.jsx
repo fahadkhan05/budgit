@@ -159,33 +159,31 @@ export default function Recommendations() {
       {successMsg && <div className="alert alert-success">{successMsg}</div>}
 
       {/* Budget Context — always live, fetched independently from recommendations cache */}
-      {budgetStats && (
-        <div className="grid-3" style={{ marginBottom: '1.25rem' }}>
-          <div className="card">
-            <div className="card-title">Monthly Budget</div>
-            <div className="stat-number" style={{ color: 'var(--primary)' }}>
-              {fmt(budgetStats.budget_amount)}
-            </div>
-          </div>
-          <div className="card">
-            <div className="card-title">Spent So Far</div>
-            <div className="stat-number" style={{ color: 'var(--danger)' }}>
-              {fmt(budgetStats.total_spent)}
-            </div>
-          </div>
-          <div className="card">
-            <div className="card-title">Still Available</div>
-            <div className="stat-number" style={{
-              color: budgetStats.remaining_budget >= 0 ? 'var(--success)' : 'var(--danger)'
-            }}>
-              {fmt(budgetStats.remaining_budget)}
-            </div>
-            <div className="stat-label">
-              Recommendations based on this amount
-            </div>
+      <div className="grid-3" style={{ marginBottom: '1.25rem' }}>
+        <div className="card">
+          <div className="card-title">Monthly Budget</div>
+          <div className="stat-number" style={{ color: 'var(--primary)' }}>
+            {budgetStats ? fmt(budgetStats.budget_amount) : '—'}
           </div>
         </div>
-      )}
+        <div className="card">
+          <div className="card-title">Spent So Far</div>
+          <div className="stat-number" style={{ color: 'var(--danger)' }}>
+            {budgetStats ? fmt(budgetStats.total_spent) : '—'}
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-title">Still Available</div>
+          <div className="stat-number" style={{
+            color: budgetStats
+              ? (budgetStats.remaining_budget >= 0 ? 'var(--success)' : 'var(--danger)')
+              : 'var(--text-muted)'
+          }}>
+            {budgetStats ? fmt(budgetStats.remaining_budget) : '—'}
+          </div>
+          <div className="stat-label">Recommendations based on this amount</div>
+        </div>
+      </div>
 
       {/* Interest Selector */}
       <div className="card" style={{ marginBottom: '1.25rem' }}>
