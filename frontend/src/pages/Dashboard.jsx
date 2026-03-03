@@ -19,7 +19,7 @@
  *     Each segment gets a delay equal to how far around the circle it lives,
  *     so they draw one after another like a single line going around.
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import api from '../api/axios'
 
 const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316']
@@ -147,6 +147,9 @@ function DonutChart({ data, totalSpent, totalBudget }) {
  *   at the bottom of the chart, forming a filled polygon.
  */
 function LineGraph({ monthly, year, onYearChange }) {
+  const lineRef = useRef(null)
+  const areaRef = useRef(null)
+
   const PAD   = { top: 16, right: 12, bottom: 30, left: 44 }
   const VW    = 500
   const VH    = 150
@@ -154,16 +157,13 @@ function LineGraph({ monthly, year, onYearChange }) {
   const plotH = VH - PAD.top  - PAD.bottom
 
   const totals = monthly.map(d => d.total)
-  const maxVal = Math.max(...totals, 1) * 1.15  // 15% headroom above peak
+  const maxVal = Math.max(...totals, 1) * 1.15
 
-  // Map a data index (0-11) to an SVG x coordinate
   const px = (i)   => PAD.left + (i / 11) * plotW
-  // Map a dollar value to an SVG y coordinate (higher $ = lower y number = higher on screen)
   const py = (val) => PAD.top + plotH - (val / maxVal) * plotH
 
   const points = totals.map((val, i) => [px(i), py(val)])
 
-  // Build smooth bezier path through all 12 points
   const linePath = points.reduce((d, [x, y], i) => {
     if (i === 0) return `M ${x} ${y}`
     const [prevX, prevY] = points[i - 1]
@@ -171,10 +171,8 @@ function LineGraph({ monthly, year, onYearChange }) {
     return `${d} C ${midX} ${prevY} ${midX} ${y} ${x} ${y}`
   }, '')
 
-  // Close the path at the bottom to create a filled area shape
   const areaPath = `${linePath} L ${px(11)} ${PAD.top + plotH} L ${px(0)} ${PAD.top + plotH} Z`
 
-  // Y-axis gridlines at 0%, 33%, 66%, 100% of max
   const gridLines = [0, 0.33, 0.66, 1].map(ratio => ({
     y:     py(maxVal * ratio),
     label: fmtShort(maxVal * ratio),
@@ -182,48 +180,54 @@ function LineGraph({ monthly, year, onYearChange }) {
 
   const hasData = totals.some(v => v > 0)
 
+  // Draw the line left-to-right using stroke-dashoffset animation
+  useEffect(() => {
+    if (!lineRef.current || !hasData) return
+    const len = lineRef.current.getTotalLength()
+    const el = lineRef.current
+    el.style.transition = 'none'
+    el.style.strokeDasharray = len
+    el.style.strokeDashoffset = len
+    // Trigger reflow so the initial state is painted before animating
+    el.getBoundingClientRect()
+    el.style.transition = 'stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1)'
+    el.style.strokeDashoffset = 0
+
+    // Fade in the area fill slightly after the line starts drawing
+    if (areaRef.current) {
+      areaRef.current.style.opacity = 0
+      setTimeout(() => {
+        if (areaRef.current) {
+          areaRef.current.style.transition = 'opacity 0.6s ease'
+          areaRef.current.style.opacity = 1
+        }
+      }, 400)
+    }
+  }, [monthly]) // Re-animate whenever data changes (year switch, etc.)
+
   return (
     <div>
-      {/* Year navigation */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={() => onYearChange(year - 1)}
-        >←</button>
+        <button className="btn btn-secondary btn-sm" onClick={() => onYearChange(year - 1)}>←</button>
         <span style={{ fontWeight: 600, fontSize: '0.9rem', minWidth: '3rem', textAlign: 'center' }}>{year}</span>
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={() => onYearChange(year + 1)}
-        >→</button>
+        <button className="btn btn-secondary btn-sm" onClick={() => onYearChange(year + 1)}>→</button>
       </div>
 
-      <svg
-        width="100%"
-        viewBox={`0 0 ${VW} ${VH}`}
-        style={{ overflow: 'visible' }}
-      >
-        {/* Horizontal gridlines + Y-axis labels */}
+      <svg width="100%" viewBox={`0 0 ${VW} ${VH}`} style={{ overflow: 'visible' }}>
         {gridLines.map(({ y, label }, i) => (
           <g key={i}>
-            <line
-              x1={PAD.left} y1={y} x2={VW - PAD.right} y2={y}
-              stroke="var(--border)" strokeWidth="1"
-            />
-            <text
-              x={PAD.left - 6} y={y + 4}
-              textAnchor="end" fontSize="10" fill="var(--text-muted)"
-            >{label}</text>
+            <line x1={PAD.left} y1={y} x2={VW - PAD.right} y2={y} stroke="var(--border)" strokeWidth="1" />
+            <text x={PAD.left - 6} y={y + 4} textAnchor="end" fontSize="10" fill="var(--text-muted)">{label}</text>
           </g>
         ))}
 
-        {/* Area fill under the line */}
         {hasData && (
-          <path d={areaPath} fill="var(--primary)" fillOpacity="0.08" />
+          <path ref={areaRef} d={areaPath} fill="var(--primary)" fillOpacity="0.08" style={{ opacity: 0 }} />
         )}
 
-        {/* The line itself */}
         {hasData && (
           <path
+            ref={lineRef}
             d={linePath}
             fill="none"
             stroke="var(--primary)"
@@ -233,18 +237,14 @@ function LineGraph({ monthly, year, onYearChange }) {
           />
         )}
 
-        {/* Dot at each data point — only show for months that have spending */}
         {points.map(([x, y], i) => totals[i] > 0 && (
-          <circle key={i} cx={x} cy={y} r="3.5" fill="var(--primary)" />
+          <circle key={i} cx={x} cy={y} r="3.5" fill="var(--primary)"
+            style={{ opacity: 0, animation: `fadeUp 0.3s ease ${0.8 + i * 0.04}s both` }}
+          />
         ))}
 
-        {/* Month labels on X axis */}
         {MONTHS.map((m, i) => (
-          <text
-            key={i}
-            x={px(i)} y={VH - 4}
-            textAnchor="middle" fontSize="10" fill="var(--text-muted)"
-          >{m}</text>
+          <text key={i} x={px(i)} y={VH - 4} textAnchor="middle" fontSize="10" fill="var(--text-muted)">{m}</text>
         ))}
       </svg>
 
@@ -271,8 +271,10 @@ export default function Dashboard() {
   const [loading, setLoading]         = useState(!_init)
   const [error, setError]             = useState('')
 
-  const [graphYear, setGraphYear]     = useState(new Date().getFullYear())
-  const [graphData, setGraphData]     = useState(null)
+  const _initYear    = new Date().getFullYear()
+  const _graphCached = sessionStorage.getItem(`graph_cache_${_initYear}`)
+  const [graphYear, setGraphYear] = useState(_initYear)
+  const [graphData, setGraphData] = useState(_graphCached ? JSON.parse(_graphCached) : null)
 
   useEffect(() => { fetchData() }, [])
   useEffect(() => { fetchGraphData(graphYear) }, [graphYear])
@@ -304,9 +306,13 @@ export default function Dashboard() {
   }
 
   const fetchGraphData = async (year) => {
+    const cacheKey = `graph_cache_${year}`
+    const cached = sessionStorage.getItem(cacheKey)
+    if (cached) setGraphData(JSON.parse(cached))
     try {
       const { data } = await api.get(`/transactions/monthly-stats/?year=${year}`)
       setGraphData(data.monthly)
+      sessionStorage.setItem(cacheKey, JSON.stringify(data.monthly))
     } catch {
       // Graph is non-critical — fail silently
     }
