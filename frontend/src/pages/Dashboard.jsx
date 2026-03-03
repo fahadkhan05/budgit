@@ -259,12 +259,16 @@ function LineGraph({ monthly, year, onYearChange }) {
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const [budget, setBudget]           = useState(null)
-  const [stats, setStats]             = useState(null)
-  const [recentTx, setRecentTx]       = useState([])
-  const [budgetInput, setBudgetInput] = useState('')
+  // Read cache synchronously so the very first render already has data (no loading flash)
+  const _cached = sessionStorage.getItem('dashboard_cache')
+  const _init   = _cached ? JSON.parse(_cached) : null
+
+  const [budget, setBudget]           = useState(_init?.budget   || null)
+  const [stats, setStats]             = useState(_init?.stats    || null)
+  const [recentTx, setRecentTx]       = useState(_init?.recentTx || [])
+  const [budgetInput, setBudgetInput] = useState(_init?.budget?.amount || '')
   const [savingBudget, setSavingBudget] = useState(false)
-  const [loading, setLoading]         = useState(true)
+  const [loading, setLoading]         = useState(!_init)
   const [error, setError]             = useState('')
 
   const [graphYear, setGraphYear]     = useState(new Date().getFullYear())
@@ -274,17 +278,8 @@ export default function Dashboard() {
   useEffect(() => { fetchGraphData(graphYear) }, [graphYear])
 
   const fetchData = async () => {
-    const cached = sessionStorage.getItem('dashboard_cache')
-    if (cached) {
-      const { budget, stats, recentTx } = JSON.parse(cached)
-      setBudget(budget)
-      setBudgetInput(budget.amount || '')
-      setStats(stats)
-      setRecentTx(recentTx)
-      setLoading(false)
-    } else {
-      setLoading(true)
-    }
+    const hasCached = !!sessionStorage.getItem('dashboard_cache')
+    if (!hasCached) setLoading(true)
     try {
       const now = new Date()
       const [budgetRes, statsRes, txRes] = await Promise.all([
@@ -302,7 +297,7 @@ export default function Dashboard() {
         recentTx: txRes.data.slice(0, 5),
       }))
     } catch {
-      if (!cached) setError('Failed to load dashboard data.')
+      if (!hasCached) setError('Failed to load dashboard data.')
     } finally {
       setLoading(false)
     }

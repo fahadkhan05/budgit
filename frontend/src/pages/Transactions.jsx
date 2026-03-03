@@ -45,17 +45,23 @@ const EMPTY_FORM = {
 }
 
 export default function Transactions() {
-  const [transactions, setTransactions] = useState([])
+  // Read cache synchronously for current month so first render has data immediately
+  const _now        = new Date()
+  const _initMonth  = _now.getMonth() + 1
+  const _initYear   = _now.getFullYear()
+  const _txCached   = sessionStorage.getItem(`tx_cache_${_initMonth}_${_initYear}`)
+  const _initTx     = _txCached ? JSON.parse(_txCached) : []
+
+  const [transactions, setTransactions] = useState(_initTx)
   const [form, setForm]       = useState(EMPTY_FORM)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!_txCached)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]     = useState('')
   const [showForm, setShowForm] = useState(false)
 
   // Month/year filter — defaults to current month
-  const now = new Date()
-  const [month, setMonth] = useState(now.getMonth() + 1)  // JS months are 0-indexed
-  const [year, setYear]   = useState(now.getFullYear())
+  const [month, setMonth] = useState(_initMonth)
+  const [year, setYear]   = useState(_initYear)
 
   useEffect(() => {
     fetchTransactions()
