@@ -147,9 +147,8 @@ function DonutChart({ data, totalSpent, totalBudget }) {
  *   at the bottom of the chart, forming a filled polygon.
  */
 function LineGraph({ monthly, year, onYearChange }) {
-  const lineRef        = useRef(null)
-  const areaRef        = useRef(null)
-  const lastAnimKeyRef = useRef(null)
+  const lineRef = useRef(null)
+  const areaRef = useRef(null)
 
   const PAD   = { top: 16, right: 12, bottom: 30, left: 44 }
   const VW    = 500
@@ -180,14 +179,14 @@ function LineGraph({ monthly, year, onYearChange }) {
   }))
 
   const hasData = totals.some(v => v > 0)
+  const animKey = totals.join(',')
 
-  // Draw the line left-to-right using stroke-dashoffset animation
+  // Draw the line left-to-right using stroke-dashoffset animation.
+  // Depends on animKey (a string of values) instead of the monthly array reference,
+  // so the effect only re-runs when actual data changes — not when a new array
+  // object with identical values is passed (e.g. cache hit then same API response).
   useEffect(() => {
     if (!lineRef.current || !hasData) return
-    // Skip if the data values haven't actually changed (e.g. cache hit then same API response)
-    const animKey = totals.join(',')
-    if (lastAnimKeyRef.current === animKey) return
-    lastAnimKeyRef.current = animKey
     const len = lineRef.current.getTotalLength()
     const el = lineRef.current
     el.style.transition = 'none'
@@ -208,7 +207,7 @@ function LineGraph({ monthly, year, onYearChange }) {
         }
       }, 400)
     }
-  }, [monthly]) // Re-animate whenever data changes (year switch, etc.)
+  }, [animKey]) // Re-animate only when values actually change (year switch, etc.)
 
   return (
     <div>
