@@ -103,6 +103,7 @@ export default function Transactions() {
       setShowForm(false)
       sessionStorage.removeItem(`tx_cache_${month}_${year}`)
       fetchTransactions()
+      refreshSharedCaches()
     } catch (err) {
       const data = err.response?.data
       if (typeof data === 'object') {
@@ -122,9 +123,42 @@ export default function Transactions() {
       await api.delete(`/transactions/${id}/`)
       sessionStorage.removeItem(`tx_cache_${month}_${year}`)
       setTransactions(prev => prev.filter(t => t.id !== id))
+      refreshSharedCaches()
     } catch (err) {
       setError('Failed to delete transaction.')
     }
+  }
+
+  // Fire-and-forget: after any mutation, re-fetch the data that Dashboard and
+  // Recommendations depend on so their caches are warm before the user navigates there.
+  const refreshSharedCaches = () => {
+    const now      = new Date()
+    const curMonth = now.getMonth() + 1
+    const curYear  = now.getFullYear()
+
+    Promise.all([
+      api.get('/budgets/current/'),
+      api.get('/transactions/stats/'),
+      api.get(`/transactions/?month=${curMonth}&year=${curYear}`),
+      api.get(`/transactions/monthly-stats/?year=${curYear}`),
+    ]).then(([budgetRes, statsRes, txRes, graphRes]) => {
+      const budgetAmount = parseFloat(budgetRes.data.amount || 0)
+      const totalSpent   = parseFloat(statsRes.data.total_spent || 0)
+
+      sessionStorage.setItem('dashboard_cache', JSON.stringify({
+        budget:   budgetRes.data,
+        stats:    statsRes.data,
+        recentTx: txRes.data.slice(0, 5),
+      }))
+      sessionStorage.setItem('budget_stats_cache', JSON.stringify({
+        budget_amount:    budgetAmount,
+        total_spent:      totalSpent,
+        remaining_budget: budgetAmount - totalSpent,
+      }))
+      sessionStorage.setItem(`graph_cache_${curYear}`, JSON.stringify(graphRes.data.monthly))
+    }).catch(() => {
+      // Non-critical — pages will re-fetch themselves if cache is missing
+    })
   }
 
   // Derived values — computed from state, not stored separately
