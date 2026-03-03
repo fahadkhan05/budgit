@@ -62,12 +62,20 @@ export default function Transactions() {
   }, [month, year])  // Re-fetch whenever month or year changes
 
   const fetchTransactions = async () => {
-    setLoading(true)
+    const cacheKey = `tx_cache_${month}_${year}`
+    const cached = sessionStorage.getItem(cacheKey)
+    if (cached) {
+      setTransactions(JSON.parse(cached))
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
     try {
       const { data } = await api.get(`/transactions/?month=${month}&year=${year}`)
       setTransactions(data)
+      sessionStorage.setItem(cacheKey, JSON.stringify(data))
     } catch (err) {
-      setError('Failed to load transactions.')
+      if (!cached) setError('Failed to load transactions.')
     } finally {
       setLoading(false)
     }
@@ -85,9 +93,10 @@ export default function Transactions() {
 
     try {
       await api.post('/transactions/', form)
-      setForm(EMPTY_FORM)    // Reset form
+      setForm(EMPTY_FORM)
       setShowForm(false)
-      fetchTransactions()    // Re-fetch to show the new transaction
+      sessionStorage.removeItem(`tx_cache_${month}_${year}`)
+      fetchTransactions()
     } catch (err) {
       const data = err.response?.data
       if (typeof data === 'object') {
@@ -105,7 +114,7 @@ export default function Transactions() {
 
     try {
       await api.delete(`/transactions/${id}/`)
-      // Remove from local state immediately (optimistic for deletes)
+      sessionStorage.removeItem(`tx_cache_${month}_${year}`)
       setTransactions(prev => prev.filter(t => t.id !== id))
     } catch (err) {
       setError('Failed to delete transaction.')

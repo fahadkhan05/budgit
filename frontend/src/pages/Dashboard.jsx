@@ -274,7 +274,17 @@ export default function Dashboard() {
   useEffect(() => { fetchGraphData(graphYear) }, [graphYear])
 
   const fetchData = async () => {
-    setLoading(true)
+    const cached = sessionStorage.getItem('dashboard_cache')
+    if (cached) {
+      const { budget, stats, recentTx } = JSON.parse(cached)
+      setBudget(budget)
+      setBudgetInput(budget.amount || '')
+      setStats(stats)
+      setRecentTx(recentTx)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
     try {
       const now = new Date()
       const [budgetRes, statsRes, txRes] = await Promise.all([
@@ -286,8 +296,13 @@ export default function Dashboard() {
       setBudgetInput(budgetRes.data.amount || '')
       setStats(statsRes.data)
       setRecentTx(txRes.data.slice(0, 5))
+      sessionStorage.setItem('dashboard_cache', JSON.stringify({
+        budget: budgetRes.data,
+        stats: statsRes.data,
+        recentTx: txRes.data.slice(0, 5),
+      }))
     } catch {
-      setError('Failed to load dashboard data.')
+      if (!cached) setError('Failed to load dashboard data.')
     } finally {
       setLoading(false)
     }
@@ -308,6 +323,7 @@ export default function Dashboard() {
     try {
       const res = await api.post('/budgets/current/', { amount: budgetInput })
       setBudget(res.data)
+      sessionStorage.removeItem('dashboard_cache')
       fetchData()
     } catch {
       setError('Failed to save budget.')
