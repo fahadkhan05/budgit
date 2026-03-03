@@ -43,8 +43,12 @@ const fmt = (n) => `$${Number(n).toLocaleString('en-US', { minimumFractionDigits
 export default function Recommendations() {
   const { user, updateUser } = useAuth()
 
+  // Read budget stats cache synchronously so cards render with values on first paint
+  const _statsCached = sessionStorage.getItem('budget_stats_cache')
+  const _initStats   = _statsCached ? JSON.parse(_statsCached) : null
+
   const [data, setData]             = useState(null)  // { recommendations, interests, ... }
-  const [budgetStats, setBudgetStats] = useState(null) // { budget_amount, total_spent, remaining_budget }
+  const [budgetStats, setBudgetStats] = useState(_initStats) // { budget_amount, total_spent, remaining_budget }
   const [loading, setLoading]       = useState(true)   // true only on the very first load
   const [refreshing, setRefreshing] = useState(false)  // true only when re-fetching after first load
   const [saving, setSaving]         = useState(false)
@@ -83,11 +87,13 @@ export default function Recommendations() {
       ])
       const budgetAmount = parseFloat(budgetRes.data.amount || 0)
       const totalSpent   = parseFloat(statsRes.data.total_spent || 0)
-      setBudgetStats({
+      const newStats = {
         budget_amount:    budgetAmount,
         total_spent:      totalSpent,
         remaining_budget: budgetAmount - totalSpent,
-      })
+      }
+      setBudgetStats(newStats)
+      sessionStorage.setItem('budget_stats_cache', JSON.stringify(newStats))
     } catch {
       // Non-critical — fall back to cached data if available
     }
