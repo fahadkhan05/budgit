@@ -160,6 +160,9 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://localhost:3000',
 ] + _extra_origins
+
+# Allow all origins if CORS_ALLOW_ALL=True is set (useful for debugging)
+CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL', 'False') == 'True'
 CORS_ALLOW_CREDENTIALS = True
 
 # ---------------------------------------------------------------------------
