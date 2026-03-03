@@ -382,7 +382,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 .navbar-brand {
-  font-size: 1rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: var(--primary);
   text-decoration: none;
