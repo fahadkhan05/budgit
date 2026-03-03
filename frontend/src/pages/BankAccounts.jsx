@@ -35,8 +35,11 @@ const fmt = (dt) => {
 }
 
 export default function BankAccounts() {
-  const [items, setItems]           = useState([])
-  const [loading, setLoading]       = useState(true)
+  // Read cache synchronously so the list renders on first paint
+  const _cached    = sessionStorage.getItem('bank_items_cache')
+  const _initItems = _cached ? JSON.parse(_cached) : []
+
+  const [items, setItems]           = useState(_initItems)
   const [linkToken, setLinkToken]   = useState(null)
   const [syncing, setSyncing]       = useState(null)  // item id being synced, or 'all'
   const [connecting, setConnecting] = useState(false)
@@ -47,10 +50,9 @@ export default function BankAccounts() {
     try {
       const { data } = await api.get('/plaid/items/')
       setItems(data)
+      sessionStorage.setItem('bank_items_cache', JSON.stringify(data))
     } catch {
       setError('Failed to load connected banks.')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -115,13 +117,15 @@ export default function BankAccounts() {
     if (!window.confirm('Disconnect this bank account? Your existing transactions will stay.')) return
     try {
       await api.delete(`/plaid/items/${itemId}/remove/`)
-      setItems(prev => prev.filter(i => i.id !== itemId))
+      setItems(prev => {
+        const updated = prev.filter(i => i.id !== itemId)
+        sessionStorage.setItem('bank_items_cache', JSON.stringify(updated))
+        return updated
+      })
     } catch {
       setError('Failed to disconnect bank.')
     }
   }
-
-  if (loading) return <div className="loading">Loading bank accounts...</div>
 
   return (
     <div className="page">
@@ -154,7 +158,6 @@ export default function BankAccounts() {
       {/* No banks connected yet */}
       {items.length === 0 && (
         <div className="empty-state">
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏦</div>
           <h3>No banks connected</h3>
           <p>
             Connect your bank account to automatically import transactions.<br />
