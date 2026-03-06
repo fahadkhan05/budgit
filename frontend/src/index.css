@@ -382,12 +382,12 @@ input:focus, select:focus, textarea:focus {
 }
 
 .navbar-brand {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Raleway', sans-serif;
   font-size: 1.35rem;
   font-weight: 700;
   color: var(--primary);
   text-decoration: none;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.01em;
   flex-shrink: 0;
 }
 

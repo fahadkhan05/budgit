@@ -123,7 +123,7 @@ export default function Register() {
 
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
-          <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '2.75rem', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1 }}>
+          <div style={{ fontFamily: "'Raleway', sans-serif", fontSize: '2.75rem', fontWeight: 700, letterSpacing: '0.01em', lineHeight: 1 }}>
             <span style={{ color: 'var(--primary)' }}>Budg</span><span style={{ color: '#f97316' }}>it</span>
           </div>
           <p style={{ marginTop: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
